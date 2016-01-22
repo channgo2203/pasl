@@ -28,14 +28,9 @@ VERBOSE_MAKE=0
 VERBOSE_DEPENDENCIES=0
 
 PROGRAMS=\
-	fib.cpp \
-	parallel-file-map.cpp \
-	parallel-array-map.cpp \
 	rake-compress-construction.cpp \
 	rake-compress-update.cpp \
-	rake-compress-check.cpp \
-	static-contract.cpp \
-	check.cpp
+	rake-compress-check.cpp
 #       add reference to your cpp source here
 
 ####################################################################

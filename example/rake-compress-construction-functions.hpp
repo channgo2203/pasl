@@ -55,6 +55,7 @@ void initialization_construction(int n, std::vector<int>* children, int* parent)
       lists[i]->add_child(lists[child]);
     }
     lists[i]->prepare();
+    lists[i]->state.singleton = lists[i]->degree() == 0;
   }
 
   tmp = new int[2 * n];
@@ -159,11 +160,6 @@ void construction_round_seq(int round) {
   if (round % 100 == 0) {
     std::cerr << round << " " << len[round % 2] << " " << live[round % 2][0] << std::endl;
   }
-
-/*  for (int i = 0; i < len[round % 2]; i++) {
-    std::cerr << live[round % 2][i] << " ";
-  }
-  std::cerr << std::endl;*/
 
   for (int i = 0; i < len[round % 2]; i++) {
     int v = live[round % 2][i];

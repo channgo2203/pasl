@@ -7,6 +7,8 @@ loop_controller_type update_loop2("update_loop2");
 loop_controller_type update_loop3("update_loop3");
 loop_controller_type update_loop4("update_loop4");
 loop_controller_type update_loop5("update_loop5");
+loop_controller_type update_loop6("update_loop6");
+loop_controller_type update_loop7("update_loop7");
 #endif
 
 int* ids;
@@ -108,10 +110,25 @@ void initialization_update(int n, std::unordered_map<int, std::vector<std::pair<
   int id = 0;
   for (auto p : del) {
     make_affected(lists[p.first]->head, id++, false);
+    if (lists[p.first]->head->degree() == 0 ^ lists[p.first]->head->is_singleton()) {
+      make_affected(lists[p.first]->head->get_parent(), id - 1, false);
+    }
   }
+
   for (auto p : add) {
     make_affected(lists[p.first]->head, id++, false);
+    if (lists[p.first]->head->degree() == 0 ^ lists[p.first]->head->is_singleton()) {
+//      std::cerr << " " << p.first << " " << lists[p.first]->head->get_parent() << " " << lists[0]->head << std::endl;
+      make_affected(lists[p.first]->head->get_parent(), id - 1, false);
+    }
   }
+
+  for (int i = 0; i < id; i++) {
+    for (Node* v : live_affected_sets[i]) {
+      v->state.singleton = v->degree() == 0;
+    }
+  }
+
   live[0] = new int[id];
   for (int i = 0; i < id; i++) {
     live[0][i] = i;
@@ -278,28 +295,25 @@ void update_round(int round) {
     deleted_affected_sets[i].swap(old_deleted_affected_sets[i]);
   });
 
-//  for (int i = 0; i < set_number; i++) {
+//  std::cerr << "\nRound: " << round << "\n";
 #ifdef STANDART
   pasl::sched::native::parallel_for(0, len[round % 2], [&] (int j) {
 #elif SPECIAL
-  pasl::sched::granularity::parallel_for(update_loop2, 0, len[round % 2], [&] (int j) {
+//  pasl::sched::granularity::parallel_for(update_loop2, 0, len[round % 2], [&] (int j) {
+  for (int j = 0; j < len[round % 2]; j++) {
 #endif
     int i = live[round % 2][j];
     for (Node* v : old_live_affected_sets[i]) {
-      bool vcontracted = v->is_contracted();
+      bool contracted = v->state.contracted;
       v->state.contracted = is_contracted(v, round);
-      if (on_frontier(v)) {
+//      std::cerr << v->get_vertex() << std::endl;
+      if (v->state.contracted || contracted) {
+/*        if (v->state.contracted) {
+          std::cerr << "Contract: " << v->get_vertex() << std::endl;
+        }*/
         Node* p = v->get_parent();
-        if (vertex_thread[p->get_vertex()] == -1 && ((v->is_contracted() || vcontracted))) {// || p->is_affected())) {
-          if (p->is_contracted() && v->is_contracted()) {
-            if (vertex_thread[p->get_parent()->get_vertex()] == -1)
-            p->get_parent()->set_proposal(p, i);
-          }
-
-          if (is_contracted(p, round) && vcontracted) {
-            if (vertex_thread[p->get_parent()->get_vertex()] == -1)
-              p->get_parent()->set_proposal(p, i);
-          }
+        if (vertex_thread[p->get_vertex()] == -1) {
+//          std::cerr << "Affect " << p->get_vertex() << std::endl;
           p->set_proposal(v, i);
         }
 #ifdef STANDART
@@ -311,17 +325,19 @@ void update_round(int round) {
             continue;
           Node* c = children[k];
 #endif
-          if (vertex_thread[c->get_vertex()] == -1 && (v->is_contracted() || vcontracted)) { // || c->is_affected())) {
+          if (vertex_thread[c->get_vertex()] == -1) {
             c->set_proposal(v, i);
+//            std::cerr << "Affect " << c->get_vertex() << std::endl;
           }
         }
       }
+
       if (!v->is_contracted() && !v->is_root()) {
         copy_node(v);
         live_affected_sets[i].insert(v->next);
       }
     }
-  });
+  }//);
 
 //  for (int i = 0; i < set_number; i++) {
 #ifdef STANDART
@@ -340,22 +356,6 @@ void update_round(int round) {
           make_affected(p, i, true);
         }
       }
-      if (p->is_contracted() || v->is_contracted()) {
-        Node* pp = p->get_parent();
-        if (get_thread_id(pp) == i) {
-          pp->state.contracted = is_contracted(pp, round);
-          if (!pp->is_contracted()) {
-            make_affected(pp, i, true);
-          }
-        }
-      }
-/*      if (get_thread_id(p) == i) {
-        if (p->is_contracted()) {
-          free_vertex(p, i);
-        } else {
-          make_affected(p, i, true);
-        }
-      }*/
 #ifdef STANDART
       for (Node* u : v->get_children()) {
 #elif SPECIAL
@@ -380,7 +380,6 @@ void update_round(int round) {
     }
   });
 
-//  for (int i = 0; i < set_number; i++) {
 #ifdef STANDART
   pasl::sched::native::parallel_for(0, len[round % 2], [&] (int j) {
 #elif SPECIAL
@@ -388,10 +387,10 @@ void update_round(int round) {
 #endif
     int i = live[round % 2][j];
     for (Node* v : live_affected_sets[i]) {
+//      std::cerr << v->get_vertex() << std::endl;
       if (v->get_parent()->is_contracted()) {
         delete_node_for(v->get_parent(), v);
       }
-//      std::set<Node*> copy_children = v->get_children();
 #ifdef STANDART
       std::set<Node*>& copy_children = v->prev->get_children();
       for (Node* c : copy_children) {
@@ -409,7 +408,6 @@ void update_round(int round) {
     }
   });
 
-//  for (int i = 0; i < set_number; i++) {
 #ifdef STANDART
   pasl::sched::native::parallel_for(0, len[round % 2], [&] (int j) {
 #elif SPECIAL
@@ -417,7 +415,43 @@ void update_round(int round) {
 #endif
     int i = live[round % 2][j];
     for (Node* v : live_affected_sets[i]) {
+      if (v->degree() == 0 ^ v->is_singleton()) {
+        Node* p = v->get_parent();
+        if (vertex_thread[p->get_vertex()] == -1) {
+          p->next->set_proposal(v, i);
+        }
+      }
+    }
+  });
+
+#ifdef STANDART
+  pasl::sched::native::parallel_for(0, len[round % 2], [&] (int j) {
+#elif SPECIAL
+  pasl::sched::granularity::parallel_for(update_loop6, 0, len[round % 2], [&] (int j) {
+#endif
+    int i = live[round % 2][j];
+    old_live_affected_sets[i].clear();
+    for (Node* v : live_affected_sets[i]) {
+      if (v->degree() == 0 ^ v->is_singleton()) {
+        Node* p = v->get_parent();
+        if (get_thread_id(p->next) == i) {
+          vertex_thread[p->get_vertex()] = i;
+          old_live_affected_sets[i].insert(p->next);
+        }
+      }
       v->advance();
+    }
+    live_affected_sets[i].insert(old_live_affected_sets[i].begin(), old_live_affected_sets[i].end());
+  });
+
+
+#ifdef STANDART
+  pasl::sched::native::parallel_for(0, len[round % 2], [&] (int j) {
+#elif SPECIAL
+  pasl::sched::granularity::parallel_for(update_loop7, 0, len[round % 2], [&] (int j) {
+#endif
+    int i = live[round % 2][j];
+    for (Node* v : live_affected_sets[i]) {
       v->prepare();
     }
   });

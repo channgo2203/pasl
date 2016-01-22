@@ -60,13 +60,14 @@ struct State {
   bool root;
   bool affected;
   bool frontier;
+  bool singleton;
 
-  State(int _vertex) : vertex(_vertex), contracted(false), root(false), affected(false) {
+  State(int _vertex) : vertex(_vertex), contracted(false), root(false), affected(false), singleton(false) {
     for (int i = 0; i < MAX_DEGREE; i++)
       children[i] = NULL;
   }
 
-  State(const State &state) : contracted(false), root(false), affected(false) {
+  State(const State &state) : contracted(false), root(false), affected(false), singleton(false) {
     vertex = state.vertex;
 //    children = state.children;
     parent = state.parent;
@@ -106,28 +107,18 @@ struct Node {
     head = NULL;
     next = NULL;
     prev = NULL;
-/*#ifdef STANDART
-    proposals = NULL;
-#elif SPECIAL*/
     for (int i = 0; i < MAX_DEGREE; i++) {
       proposals[i] = 0;
-//      affected[i] = false;
     }
-//#endif
   }
 
   Node(const Node &node) : state(node.state) {
     head = node.head;
     next = NULL;
     prev = NULL;
-/*#ifdef STANDART
-    proposals = NULL;
-#elif SPECIAL*/
     for (int i = 0; i < MAX_DEGREE; i++) {
       proposals[i] = 0;
-//      affected[i] = false;
     }
-//#endif
   }
 
   void add_child(Node* child) {
@@ -175,6 +166,10 @@ struct Node {
 #endif
   }
 
+  bool is_singleton() {
+    return state.singleton;
+  }
+
   bool is_root() {
     return state.root = (degree() == 0 && get_parent()->get_vertex() == state.vertex);
   }
@@ -197,6 +192,7 @@ struct Node {
   }
 
   void advance() {
+    state.singleton = degree() == 0;
     state.parent = state.parent->next;
     std::set<Node*> new_children;
     for (Node* c : state.children) {
@@ -217,7 +213,9 @@ struct Node {
     return state.children;
   }
 
-  void advance() {state.parent = state.parent->next;
+  void advance() {
+    state.singleton = degree() == 0;
+    state.parent = state.parent->next;
     for (int i = 0; i < MAX_DEGREE; i++) {
       if (state.children[i] != NULL) {
         state.children[i] = state.children[i]->next;
@@ -226,7 +224,6 @@ struct Node {
   }
 
   void set_children(Node** children) {
-//    state.children = children;
     for (int i = 0; i < MAX_DEGREE; i++) {
       state.children[i] = children[i];
     }
@@ -283,21 +280,8 @@ struct Node {
     }
   }
 
-  void prepare() {state.affected = false;
-//#ifdef STANDART    
-//    if (proposals != NULL) {
-///*      for (int i = 0; i < state.children.size() + 1; i++) {
-//        proposals[i] = 0;
-//      }*/
-//      delete [] affected;
-//      delete [] proposals;
-//    }
-//    affected = new bool[state.children.size() + 1];
-//    proposals = new int[state.children.size() + 1];
-//#endif
-//    for (int i = 0; i < state.children.size() + 1; i++)
-//      affected[i] = false;
-
+  void prepare() {
+    state.affected = false;
     for (int i = 0; i < state.children.size() + 1; i++)
       proposals[i] = 0;
   }
@@ -349,10 +333,8 @@ struct Node {
     }
   }
 
-  void prepare() {state.affected = false;
-/*    for (int i = 0; i < MAX_DEGREE + 1; i++)
-      affected[i] = false;*/
-
+  void prepare() {
+    state.affected = false;
     for (int i = 0; i < MAX_DEGREE + 1; i++)
       proposals[i] = 0;
   }
@@ -482,37 +464,6 @@ void make_affected(Node* u, int id, bool to_copy) {
   if (vertex_thread[u->get_vertex()] != -1) {
     return;
   }
-  //need to affect vertex, which will not be contracted later
-//  if (lists[u->get_vertex()]->is_contracted()) {
-//    Node* v = lists[u->get_vertex()];
-//    Node* p = v->get_parent();
-////    std::cerr << "set proposal from " << v->get_vertex() << "(" << v << ")" << " to " << p->get_vertex() << "(" << p << ")" ;
-////    if (vertex_thread[p->get_vertex()] == -1) {
-//      p->set_affected(v);
-////      p->set_affected(true);
-///*&    if (v == u) {
-//      make_affected(p, id, to_copy);
-//    }*/
-////    }
-//#ifdef STANDART
-//    for (Node* c : v->get_children()) {
-////      if (vertex_thread[c->get_vertex()] == -1) {
-//        c->set_affected(v);
-////        c->set_affected(true);
-///*        if (v == u) {
-//          make_affected(c, id, to_copy);
-//        } */
-////      }
-//    }
-//#elif SPECIAL
-//    Node* child = v->get_first_child();
-//    if (child != NULL) {
-//      child->set_affected(v);
-//    }
-//#endif
-//  }
-//  std::cerr << "\nMADE AFFECTED: " << u->get_vertex() << "\n";
-
   lists[u->get_vertex()] = u;
   if (to_copy)
     u->set_contracted(false);
